@@ -7,7 +7,8 @@ export async function runAgent(
   config: AgentConfig,
   userRequest: string,
   previousMessages: AgentMessage[],
-  directive: string
+  directive: string,
+  model: string = "gpt-4o"
 ): Promise<string> {
   const contextMessages = previousMessages.map(
     (m) => `[${m.agentName}] (${m.phase})\n${m.content}`
@@ -20,7 +21,7 @@ export async function runAgent(
 
   try {
     const response = await client.chat.completions.create({
-      model: "gpt-4o",
+      model,
       max_tokens: 2048,
       temperature: config.temperature,
       messages: [
