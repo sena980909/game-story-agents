@@ -31,7 +31,7 @@ function buildMeetingRounds(request: StoryRequest): MeetingRound[] {
     {
       name: "📋 라운드 1: 초안 발표",
       description: "각 에이전트가 자기 분야의 초안을 발표합니다",
-      model: "gpt-4o-mini",
+      model: "claude-haiku-4-5-20251001",
       discussions: [
         {
           speaker: "director",
@@ -64,7 +64,7 @@ function buildMeetingRounds(request: StoryRequest): MeetingRound[] {
     {
       name: "⚡ 라운드 2: 비판 & 반론",
       description: "에이전트들이 서로의 초안을 비판하고 반론합니다",
-      model: "gpt-4o-mini",
+      model: "claude-haiku-4-5-20251001",
       discussions: [
         // ── 2-A: 공격적 비판 (문제 제기) ──
         {
@@ -129,7 +129,7 @@ function buildMeetingRounds(request: StoryRequest): MeetingRound[] {
     {
       name: "🔧 라운드 3: 수정 및 보강",
       description: "피드백을 반영하여 각자의 파트를 수정합니다",
-      model: "gpt-4o",
+      model: "claude-sonnet-4-6",
       discussions: [
         {
           speaker: "world_builder",
@@ -168,7 +168,7 @@ function buildMeetingRounds(request: StoryRequest): MeetingRound[] {
     {
       name: "🔍 자기 검증",
       description: "각 에이전트가 자기 결과물을 비판적으로 재검토하고 개선합니다",
-      model: "gpt-4o",
+      model: "claude-sonnet-4-6",
       discussions: [
         {
           speaker: "world_builder",
@@ -207,7 +207,7 @@ function buildMeetingRounds(request: StoryRequest): MeetingRound[] {
     {
       name: "📑 라운드 4: 최종 통합",
       description: "디렉터가 모든 결과를 검증하고 최종 기획서를 작성합니다",
-      model: "gpt-4o",
+      model: "claude-sonnet-4-6",
       discussions: [
         {
           speaker: "director",
