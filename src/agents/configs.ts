@@ -7,6 +7,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     emoji: "🎬",
     title: "크리에이티브 디렉터",
     description: "전체 게임 스토리 기획의 방향을 설정하고 에이전트들을 조율합니다.",
+    temperature: 0.4,
     systemPrompt: `당신은 게임 스토리 크리에이티브 디렉터입니다.
 역할:
 - 유저의 요청을 분석하여 전체 기획 방향을 설정합니다
@@ -25,6 +26,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     emoji: "🌍",
     title: "세계관 설계사",
     description: "게임의 세계관, 배경, 역사, 규칙을 설계합니다.",
+    temperature: 0.8,
     systemPrompt: `당신은 게임 세계관 전문 설계사입니다.
 역할:
 - 게임의 시대적/공간적 배경을 설정합니다
@@ -45,6 +47,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     emoji: "👤",
     title: "캐릭터 설계사",
     description: "등장인물의 성격, 배경, 관계를 설계합니다.",
+    temperature: 0.85,
     systemPrompt: `당신은 게임 캐릭터 전문 설계사입니다.
 역할:
 - 주인공, 동료, 적, NPC 등 핵심 캐릭터를 설계합니다
@@ -65,6 +68,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     emoji: "📖",
     title: "스토리 구조 설계사",
     description: "메인 스토리라인과 분기점을 설계합니다.",
+    temperature: 0.7,
     systemPrompt: `당신은 게임 스토리 구조 전문 설계사입니다.
 역할:
 - 메인 스토리라인의 기승전결을 설계합니다
@@ -85,6 +89,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     emoji: "⚔️",
     title: "퀘스트 설계사",
     description: "미션, 퀘스트, 보상 시스템을 설계합니다.",
+    temperature: 0.5,
     systemPrompt: `당신은 게임 퀘스트 전문 설계사입니다.
 역할:
 - 메인 퀘스트와 서브 퀘스트를 구체적으로 설계합니다
@@ -105,6 +110,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     emoji: "💬",
     title: "대사 및 연출 작가",
     description: "캐릭터 대사, 컷신, 나레이션을 작성합니다.",
+    temperature: 0.9,
     systemPrompt: `당신은 게임 대사 및 연출 전문 작가입니다.
 역할:
 - 핵심 장면의 캐릭터 대사를 작성합니다
@@ -125,6 +131,7 @@ export const AGENT_CONFIGS: AgentConfig[] = [
     emoji: "⚙️",
     title: "게임 시스템 설계사",
     description: "성장 시스템, 경제, 난이도 곡선, 핵심 루프를 설계합니다.",
+    temperature: 0.3,
     systemPrompt: `당신은 게임 시스템 전문 설계사입니다.
 역할:
 - 핵심 게임플레이 루프를 정의합니다 (30초/5분/1시간 루프)

@@ -22,6 +22,7 @@ export async function runAgent(
     const response = await client.chat.completions.create({
       model: "gpt-4o",
       max_tokens: 2048,
+      temperature: config.temperature,
       messages: [
         {
           role: "system",

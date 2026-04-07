@@ -358,14 +358,14 @@ export default function Home() {
                   <div className="flex justify-between text-xs text-gray-500 mb-1">
                     <span>진행률</span>
                     <span>
-                      {chatMessages.length} / 17 발언
+                      {chatMessages.length} / 27 발언
                     </span>
                   </div>
                   <div className="h-2 bg-[var(--card-bg)] rounded-full border border-[var(--card-border)]">
                     <div
                       className="h-full bg-purple-600 rounded-full transition-all duration-500"
                       style={{
-                        width: `${(chatMessages.length / 17) * 100}%`,
+                        width: `${(chatMessages.length / 27) * 100}%`,
                       }}
                     />
                   </div>

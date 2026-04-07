@@ -23,6 +23,7 @@ export interface AgentConfig {
   title: string;
   description: string;
   systemPrompt: string;
+  temperature: number;
 }
 
 export interface StoryRequest {
