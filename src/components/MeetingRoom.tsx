@@ -192,7 +192,7 @@ export default function MeetingRoom({
   activeTargetAgent,
 }: MeetingRoomProps) {
   return (
-    <div className="relative w-full h-full min-h-[420px]">
+    <div className="relative w-full h-full min-h-[350px] max-h-full">
       {/* 회의실 배경 */}
       <div className="absolute inset-0 rounded-2xl border border-[var(--card-border)] bg-[#0d0d18] overflow-hidden">
         {/* 바닥 그리드 패턴 */}

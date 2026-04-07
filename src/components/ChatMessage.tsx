@@ -18,26 +18,29 @@ export default function ChatMessage({
   targetAgentName,
 }: ChatMessageProps) {
   const [expanded, setExpanded] = useState(false);
-  const isLong = content.length > 300;
-  const displayContent = isLong && !expanded ? content.slice(0, 300) + "..." : content;
+  const isLong = content.length > 150;
+  const displayContent =
+    isLong && !expanded ? content.slice(0, 150) + "..." : content;
 
   return (
-    <div className="animate-fade-in-up mb-4">
-      <div className="flex items-center gap-2 mb-1 flex-wrap">
-        <span className="text-lg">{emoji}</span>
-        <span className="font-bold text-sm text-purple-300">{agentName}</span>
+    <div className="animate-fade-in-up">
+      <div className="flex items-center gap-1.5 mb-0.5">
+        <span className="text-sm">{emoji}</span>
+        <span className="font-bold text-xs text-purple-300">{agentName}</span>
         {targetAgentName && (
           <>
-            <span className="text-xs text-gray-500">→</span>
-            <span className="text-sm text-orange-300 font-semibold">
+            <span className="text-[10px] text-gray-500">→</span>
+            <span className="text-xs text-orange-300 font-semibold">
               @{targetAgentName}
             </span>
           </>
         )}
-        <span className="text-xs text-gray-600">{phase}</span>
+        {phase && (
+          <span className="text-[10px] text-gray-600">{phase}</span>
+        )}
       </div>
       <div
-        className={`ml-8 border rounded-lg p-3 text-sm leading-relaxed whitespace-pre-wrap ${
+        className={`ml-6 border rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
           targetAgentName
             ? "bg-orange-900/10 border-orange-500/20"
             : "bg-[var(--card-bg)] border-[var(--card-border)]"
@@ -47,9 +50,9 @@ export default function ChatMessage({
         {isLong && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="block mt-2 text-purple-400 hover:text-purple-300 text-xs"
+            className="ml-1 text-purple-400 hover:text-purple-300 text-[10px]"
           >
-            {expanded ? "접기 ▲" : "더 보기 ▼"}
+            {expanded ? "[접기]" : "[더보기]"}
           </button>
         )}
       </div>

@@ -19,7 +19,9 @@ interface ChatEntry {
 export default function Home() {
   const [isRunning, setIsRunning] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
-  const [activeTargetAgent, setActiveTargetAgent] = useState<string | null>(null);
+  const [activeTargetAgent, setActiveTargetAgent] = useState<string | null>(
+    null
+  );
   const [doneAgents, setDoneAgents] = useState<Set<string>>(new Set());
   const [currentPhase, setCurrentPhase] = useState<string>("");
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
@@ -34,14 +36,12 @@ export default function Home() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
     };
   }, []);
 
-  // 에이전트별 마지막 메시지 매핑
   const lastMessages: Record<string, string> = {};
   for (const msg of chatMessages) {
     lastMessages[msg.agentRole] = msg.content;
@@ -59,7 +59,6 @@ export default function Home() {
   }));
 
   const handleSubmit = useCallback(async (request: StoryRequest) => {
-    // Abort any previous request
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -130,7 +129,9 @@ export default function Home() {
                 ]);
                 break;
               case "agent_done":
-                setDoneAgents((prev) => new Set([...prev, event.agent || ""]));
+                setDoneAgents((prev) =>
+                  new Set([...prev, event.agent || ""])
+                );
                 setActiveAgent(null);
                 setActiveTargetAgent(null);
                 break;
@@ -150,9 +151,10 @@ export default function Home() {
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       const message =
-        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
+        err instanceof Error
+          ? err.message
+          : "알 수 없는 오류가 발생했습니다.";
       setError(message);
-      console.error("Orchestration failed:", err);
     } finally {
       setIsRunning(false);
       setActiveAgent(null);
@@ -162,7 +164,9 @@ export default function Home() {
   const handleDownload = (format: "txt" | "md") => {
     if (!finalDoc) return;
     const mimeType =
-      format === "txt" ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8";
+      format === "txt"
+        ? "text/plain;charset=utf-8"
+        : "text/markdown;charset=utf-8";
     const blob = new Blob([finalDoc], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -179,7 +183,6 @@ export default function Home() {
     try {
       await navigator.clipboard.writeText(finalDoc);
     } catch {
-      // fallback: select + copy
       const textarea = document.createElement("textarea");
       textarea.value = finalDoc;
       document.body.appendChild(textarea);
@@ -202,16 +205,27 @@ export default function Home() {
 
   const started = chatMessages.length > 0 || isRunning;
 
+  // 라운드별 메시지 그룹핑
+  const groupedMessages: { phase: string; messages: ChatEntry[] }[] = [];
+  for (const msg of chatMessages) {
+    const last = groupedMessages[groupedMessages.length - 1];
+    if (last && last.phase === msg.phase) {
+      last.messages.push(msg);
+    } else {
+      groupedMessages.push({ phase: msg.phase, messages: [msg] });
+    }
+  }
+
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="border-b border-[var(--card-border)] px-6 py-4">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Header - 고정 */}
+      <header className="shrink-0 border-b border-[var(--card-border)] px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">
+            <h1 className="text-lg font-bold">
               🎮 게임 스토리 에이전트 군단
             </h1>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-500">
               AI 멀티에이전트가 협업하여 게임 스토리를 기획합니다
             </p>
           </div>
@@ -251,7 +265,7 @@ export default function Home() {
 
       {/* Error Banner */}
       {error && (
-        <div className="bg-red-900/30 border-b border-red-500/30 px-6 py-3">
+        <div className="shrink-0 bg-red-900/30 border-b border-red-500/30 px-6 py-2">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <p className="text-sm text-red-300">⚠️ {error}</p>
             <button
@@ -264,11 +278,11 @@ export default function Home() {
         </div>
       )}
 
-      {/* Main */}
-      <main className="flex-1 flex flex-col max-w-7xl mx-auto w-full">
+      {/* Main - 나머지 공간 전부 차지, overflow hidden */}
+      <main className="flex-1 min-h-0 max-w-7xl mx-auto w-full">
         {!started && !error ? (
-          /* 초기: 입력 폼 */
-          <div className="flex-1 flex items-center justify-center p-8">
+          /* 초기: 입력 폼 (스크롤 가능) */
+          <div className="h-full overflow-y-auto flex items-center justify-center p-8">
             <div className="w-full max-w-lg">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold mb-2">
@@ -284,74 +298,80 @@ export default function Home() {
             </div>
           </div>
         ) : showResult && finalDoc ? (
-          /* 최종 기획서 */
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-4">
+          /* 최종 기획서 (내부 스크롤) */
+          <div className="h-full flex flex-col">
+            <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[var(--card-border)]">
               <h2 className="text-lg font-bold">📋 최종 게임 스토리 기획서</h2>
-              <button
-                onClick={() => setShowResult(false)}
-                className="text-xs text-purple-400 hover:text-purple-300"
-              >
-                에이전트 대화 보기 →
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowResult(false)}
+                  className="text-xs text-purple-400 hover:text-purple-300"
+                >
+                  에이전트 대화 보기 →
+                </button>
+              </div>
             </div>
-            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 text-sm leading-relaxed whitespace-pre-wrap">
-              {finalDoc}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                onClick={handleCopy}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-              >
-                📋 복사하기
-              </button>
-              <button
-                onClick={() => handleDownload("txt")}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-              >
-                📥 TXT 다운로드
-              </button>
-              <button
-                onClick={() => handleDownload("md")}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-              >
-                📝 MD 다운로드
-              </button>
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-              >
-                🔄 새로 기획하기
-              </button>
+            <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 text-sm leading-relaxed whitespace-pre-wrap">
+                {finalDoc}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3 pb-4">
+                <button
+                  onClick={handleCopy}
+                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                >
+                  📋 복사하기
+                </button>
+                <button
+                  onClick={() => handleDownload("txt")}
+                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                >
+                  📥 TXT 다운로드
+                </button>
+                <button
+                  onClick={() => handleDownload("md")}
+                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                >
+                  📝 MD 다운로드
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                >
+                  🔄 새로 기획하기
+                </button>
+              </div>
             </div>
           </div>
         ) : (
-          /* 진행 중: 회의실 + 대화 */
-          <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          /* 진행 중: 회의실 + 대화 (고정 높이) */
+          <div className="h-full flex flex-col lg:flex-row">
             {/* 회의실 뷰 */}
             <div
               className={`${
                 viewMode === "room" ? "flex" : "hidden lg:flex"
-              } flex-1 p-4`}
+              } flex-1 min-h-0 flex-col p-4`}
             >
-              <div className="w-full">
-                {/* 진행률 바 */}
-                {isRunning && (
-                  <div className="mb-3">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>진행률</span>
-                      <span>{chatMessages.length} / 17 발언</span>
-                    </div>
-                    <div className="h-2 bg-[var(--card-bg)] rounded-full border border-[var(--card-border)]">
-                      <div
-                        className="h-full bg-purple-600 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${(chatMessages.length / 17) * 100}%`,
-                        }}
-                      />
-                    </div>
+              {/* 진행률 바 */}
+              {isRunning && (
+                <div className="shrink-0 mb-3">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>진행률</span>
+                    <span>
+                      {chatMessages.length} / 17 발언
+                    </span>
                   </div>
-                )}
+                  <div className="h-2 bg-[var(--card-bg)] rounded-full border border-[var(--card-border)]">
+                    <div
+                      className="h-full bg-purple-600 rounded-full transition-all duration-500"
+                      style={{
+                        width: `${(chatMessages.length / 17) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="flex-1 min-h-0">
                 <MeetingRoom
                   agents={meetingAgents}
                   currentPhase={currentPhase}
@@ -361,14 +381,14 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 대화 스트림 */}
+            {/* 대화 패널 (고정 폭, 내부 스크롤) */}
             <div
               className={`${
                 viewMode === "chat" ? "flex" : "hidden lg:flex"
               } flex-col lg:w-[420px] lg:border-l border-[var(--card-border)] min-h-0`}
             >
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)]">
-                <h2 className="text-sm font-bold">💬 에이전트 대화</h2>
+              <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)]">
+                <h2 className="text-sm font-bold">💬 에이전트 회의록</h2>
                 {finalDoc && (
                   <button
                     onClick={() => setShowResult(true)}
@@ -378,16 +398,30 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {chatMessages.map((msg, i) => (
-                  <ChatMessage
-                    key={i}
-                    emoji={msg.emoji}
-                    agentName={msg.agentName}
-                    phase={msg.phase}
-                    content={msg.content}
-                    targetAgentName={msg.targetAgentName}
-                  />
+              {/* 회의록 - 라운드별 그룹핑, 내부만 스크롤 */}
+              <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                {groupedMessages.map((group, gi) => (
+                  <div key={gi} className="mb-4">
+                    {/* 라운드 헤더 */}
+                    <div className="sticky top-0 z-10 bg-[var(--background)]/90 backdrop-blur-sm py-1.5 mb-2 border-b border-[var(--card-border)]">
+                      <span className="text-xs font-bold text-purple-400">
+                        {group.phase}
+                      </span>
+                    </div>
+                    {/* 라운드 내 메시지들 */}
+                    <div className="space-y-2">
+                      {group.messages.map((msg, mi) => (
+                        <ChatMessage
+                          key={`${gi}-${mi}`}
+                          emoji={msg.emoji}
+                          agentName={msg.agentName}
+                          phase=""
+                          content={msg.content}
+                          targetAgentName={msg.targetAgentName}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
                 {activeAgent && (
                   <div className="flex items-center gap-2 text-sm text-gray-500 ml-8 mt-2">
@@ -397,8 +431,11 @@ export default function Home() {
                       <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
                     </div>
                     <span>
-                      {AGENT_CONFIGS.find((a) => a.role === activeAgent)?.name}가
-                      작업 중...
+                      {
+                        AGENT_CONFIGS.find((a) => a.role === activeAgent)
+                          ?.name
+                      }
+                      가 작업 중...
                     </span>
                   </div>
                 )}
