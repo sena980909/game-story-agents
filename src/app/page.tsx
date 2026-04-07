@@ -309,17 +309,22 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="h-screen flex flex-col overflow-hidden bg-mesh">
       {/* Header */}
-      <header className="shrink-0 border-b border-[var(--card-border)] px-6 py-3">
+      <header className="shrink-0 border-b border-[var(--card-border)] px-6 py-3 bg-[var(--background)]/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">
-              🎮 게임 스토리 에이전트 군단
-            </h1>
-            <p className="text-xs text-gray-500">
-              AI 멀티에이전트가 협업하여 게임 스토리를 기획합니다
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-lg shadow-lg shadow-purple-500/20">
+              🎮
+            </div>
+            <div>
+              <h1 className="text-base font-bold bg-gradient-to-r from-purple-300 to-blue-300 bg-clip-text text-transparent">
+                게임 스토리 에이전트 군단
+              </h1>
+              <p className="text-[10px] text-gray-500">
+                AI 멀티에이전트 협업 기획 시스템
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {currentPhase && isRunning && (
@@ -399,18 +404,24 @@ export default function Home() {
         ) : !started && !error ? (
           /* 초기: 입력 폼 */
           <div className="h-full overflow-y-auto flex items-center justify-center p-8">
-            <div className="w-full max-w-lg">
+            <div className="w-full max-w-lg animate-fade-in">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold mb-2">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs mb-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                  7명의 AI 에이전트가 대기 중
+                </div>
+                <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                   어떤 게임을 만들고 싶으세요?
                 </h2>
                 <p className="text-gray-500 text-sm">
-                  장르, 테마, 배경을 입력하면 7명의 AI 에이전트가 회의하며
+                  장르, 테마, 배경을 입력하면 에이전트들이 회의하며
                   <br />
                   완성된 게임 스토리 기획서를 만들어드립니다.
                 </p>
               </div>
-              <InputForm onSubmit={handleSubmit} disabled={isRunning} />
+              <div className="glass-card rounded-2xl p-6">
+                <InputForm onSubmit={handleSubmit} disabled={isRunning} />
+              </div>
             </div>
           </div>
         ) : showResult && finalDoc ? (
@@ -457,43 +468,43 @@ export default function Home() {
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
               {resultTab === "doc" ? (
                 <>
-                  <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 text-sm leading-relaxed whitespace-pre-wrap">
+                  <div className="glass-card rounded-2xl p-8 text-sm leading-relaxed whitespace-pre-wrap doc-content animate-fade-in">
                     {finalDoc}
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-3 pb-4">
+                  <div className="mt-4 flex flex-wrap gap-2 pb-4">
                     <button
                       onClick={handleCopy}
-                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                      className="px-4 py-2.5 text-xs rounded-xl glass-card hover:border-purple-500/50 transition-all font-medium"
                     >
                       📋 복사하기
                     </button>
                     <button
                       onClick={() => handleDownload("txt")}
-                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                      className="px-4 py-2.5 text-xs rounded-xl glass-card hover:border-purple-500/50 transition-all font-medium"
                     >
                       📥 TXT 다운로드
                     </button>
                     <button
                       onClick={() => handleDownload("md")}
-                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                      className="px-4 py-2.5 text-xs rounded-xl glass-card hover:border-purple-500/50 transition-all font-medium"
                     >
                       📝 MD 다운로드
                     </button>
                     <button
                       onClick={handleReset}
-                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                      className="px-4 py-2.5 text-xs rounded-xl btn-glow text-white font-medium"
                     >
                       🔄 새로 기획하기
                     </button>
                   </div>
                 </>
               ) : (
-                <div className="max-w-xl mx-auto">
+                <div className="max-w-xl mx-auto animate-fade-in">
                   <RelationshipDiagram relationships={relationships} />
                   <div className="mt-4 text-center">
                     <button
                       onClick={handleReset}
-                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                      className="px-4 py-2.5 text-xs rounded-xl btn-glow text-white font-medium"
                     >
                       🔄 새로 기획하기
                     </button>
@@ -513,21 +524,24 @@ export default function Home() {
             >
               {/* 진행률 바 */}
               {isRunning && (
-                <div className="shrink-0 mb-3">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>진행률</span>
-                    <span>
+                <div className="shrink-0 mb-3 glass-card rounded-xl px-4 py-3">
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-purple-300 font-medium">진행률</span>
+                    <span className="text-gray-400">
                       {chatMessages.length} / 27 발언
                     </span>
                   </div>
-                  <div className="h-2 bg-[var(--card-bg)] rounded-full border border-[var(--card-border)]">
+                  <div className="h-2 bg-black/30 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-purple-600 rounded-full transition-all duration-500"
+                      className="h-full progress-shimmer rounded-full transition-all duration-500"
                       style={{
                         width: `${(chatMessages.length / 27) * 100}%`,
                       }}
                     />
                   </div>
+                  {currentPhase && (
+                    <div className="mt-2 text-[10px] text-purple-400/80">{currentPhase}</div>
+                  )}
                 </div>
               )}
               <div className="flex-1 min-h-0">
@@ -560,8 +574,8 @@ export default function Home() {
               <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 {groupedMessages.map((group, gi) => (
                   <div key={gi} className="mb-4">
-                    <div className="sticky top-0 z-10 bg-[var(--background)]/90 backdrop-blur-sm py-1.5 mb-2 border-b border-[var(--card-border)]">
-                      <span className="text-xs font-bold text-purple-400">
+                    <div className="sticky top-0 z-10 bg-[var(--background)]/80 backdrop-blur-md py-2 mb-2">
+                      <span className="phase-badge inline-block px-3 py-1 rounded-full text-[11px] font-bold text-purple-300">
                         {group.phase}
                       </span>
                     </div>

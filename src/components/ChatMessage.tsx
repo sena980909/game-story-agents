@@ -40,10 +40,10 @@ export default function ChatMessage({
         )}
       </div>
       <div
-        className={`ml-6 border rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap ${
+        className={`ml-6 rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap transition-all ${
           targetAgentName
-            ? "bg-orange-900/10 border-orange-500/20"
-            : "bg-[var(--card-bg)] border-[var(--card-border)]"
+            ? "bg-orange-900/10 border border-orange-500/20 shadow-[0_0_10px_rgba(249,115,22,0.05)]"
+            : "glass-card"
         }`}
       >
         {displayContent}

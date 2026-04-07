@@ -77,7 +77,7 @@ function ChipSelector({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder || "직접 입력 또는 위에서 선택"}
-          className="w-full bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-purple-500"
+          className="w-full bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg px-4 py-2 text-sm focus:outline-none input-glow"
         />
       )}
     </div>
@@ -138,7 +138,7 @@ export default function InputForm({ onSubmit, disabled }: InputFormProps) {
           value={theme}
           onChange={(e) => setTheme(e.target.value)}
           placeholder="예: 복수, 구원, 선택의 무게, 잃어버린 기억..."
-          className="w-full bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-purple-500"
+          className="w-full bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg px-4 py-2 text-sm focus:outline-none input-glow"
         />
       </div>
 
@@ -151,7 +151,7 @@ export default function InputForm({ onSubmit, disabled }: InputFormProps) {
           value={setting}
           onChange={(e) => setSetting(e.target.value)}
           placeholder="예: 멸망 직전의 제국, 부유하는 섬들의 세계..."
-          className="w-full bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-purple-500"
+          className="w-full bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg px-4 py-2 text-sm focus:outline-none input-glow"
         />
       </div>
 
@@ -221,9 +221,18 @@ export default function InputForm({ onSubmit, disabled }: InputFormProps) {
       <button
         type="submit"
         disabled={disabled || !genre || !theme || !setting}
-        className="w-full py-3 rounded-lg font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-purple-600 hover:bg-purple-500 text-white"
+        className="w-full py-3.5 rounded-xl font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed btn-glow text-white"
       >
-        {disabled ? "에이전트 군단 작업 중..." : "🚀 에이전트 군단 출격!"}
+        {disabled ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="typing-indicator flex gap-1">
+              <span className="w-1.5 h-1.5 bg-white/60 rounded-full"></span>
+              <span className="w-1.5 h-1.5 bg-white/60 rounded-full"></span>
+              <span className="w-1.5 h-1.5 bg-white/60 rounded-full"></span>
+            </span>
+            에이전트 군단 작업 중...
+          </span>
+        ) : "🚀 에이전트 군단 출격!"}
       </button>
     </form>
   );
