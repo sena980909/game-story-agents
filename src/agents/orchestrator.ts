@@ -226,22 +226,34 @@ export async function* orchestrate(
     }
   }
 
-  // 최종 문서: 라운드 4의 디렉터 출력
-  const finalMessages = allMessages.filter(
-    (m) => m.phase === "📑 라운드 4: 최종 통합"
-  );
-  const finalDoc =
-    finalMessages.length > 0
-      ? finalMessages.map((m) => m.content).join("\n\n")
-      : allMessages
-          .map((m) => {
-            const cfg = getAgentConfig(m.role);
-            const target = m.targetAgent
-              ? ` → ${getAgentConfig(m.targetAgent).name}`
-              : "";
-            return `## ${cfg.emoji} ${m.phase} — ${cfg.name}${target}\n\n${m.content}`;
-          })
-          .join("\n\n---\n\n");
+  // 최종 문서 구성: 라운드4 개요 + 라운드3 상세 전문
+  const r4 = allMessages.filter((m) => m.phase === "📑 라운드 4: 최종 통합");
+  const r3 = allMessages.filter((m) => m.phase === "🔧 라운드 3: 수정 및 보강");
+
+  const sectionOrder: { role: string; title: string }[] = [
+    { role: "world_builder", title: "세계관 상세" },
+    { role: "character_designer", title: "캐릭터 상세" },
+    { role: "plot_architect", title: "스토리 구조 상세" },
+    { role: "quest_designer", title: "퀘스트 설계 상세" },
+    { role: "systems_designer", title: "게임 시스템 상세" },
+    { role: "dialogue_writer", title: "핵심 대사 및 연출" },
+  ];
+
+  const overviewSection = r4.length > 0
+    ? `# 📋 게임 스토리 기획서\n\n${r4.map((m) => m.content).join("\n\n")}`
+    : "";
+
+  const detailSections = sectionOrder
+    .map(({ role, title }) => {
+      const msg = r3.find((m) => m.role === role);
+      if (!msg) return null;
+      const cfg = getAgentConfig(role);
+      return `---\n\n# ${cfg.emoji} ${title}\n**담당: ${cfg.name} (${cfg.title})**\n\n${msg.content}`;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
+  const finalDoc = [overviewSection, detailSections].filter(Boolean).join("\n\n");
 
   yield {
     type: "complete",
