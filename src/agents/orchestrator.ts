@@ -129,7 +129,7 @@ function buildMeetingRounds(request: StoryRequest): MeetingRound[] {
     {
       name: "🔧 라운드 3: 수정 및 보강",
       description: "피드백을 반영하여 각자의 파트를 수정합니다",
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       discussions: [
         {
           speaker: "world_builder",
