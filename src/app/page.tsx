@@ -1,64 +1,412 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useRef, useEffect, useCallback } from "react";
+import { AGENT_CONFIGS } from "@/agents/configs";
+import { OrchestratorEvent, StoryRequest } from "@/agents/types";
+import MeetingRoom from "@/components/MeetingRoom";
+import ChatMessage from "@/components/ChatMessage";
+import InputForm from "@/components/InputForm";
+
+interface ChatEntry {
+  emoji: string;
+  agentName: string;
+  phase: string;
+  content: string;
+  agentRole: string;
+  targetAgentName?: string;
+}
 
 export default function Home() {
+  const [isRunning, setIsRunning] = useState(false);
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
+  const [activeTargetAgent, setActiveTargetAgent] = useState<string | null>(null);
+  const [doneAgents, setDoneAgents] = useState<Set<string>>(new Set());
+  const [currentPhase, setCurrentPhase] = useState<string>("");
+  const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
+  const [finalDoc, setFinalDoc] = useState<string | null>(null);
+  const [showResult, setShowResult] = useState(false);
+  const [viewMode, setViewMode] = useState<"room" | "chat">("room");
+  const [error, setError] = useState<string | null>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // 에이전트별 마지막 메시지 매핑
+  const lastMessages: Record<string, string> = {};
+  for (const msg of chatMessages) {
+    lastMessages[msg.agentRole] = msg.content;
+  }
+
+  const meetingAgents = AGENT_CONFIGS.map((agent) => ({
+    role: agent.role,
+    emoji: agent.emoji,
+    name: agent.name,
+    title: agent.title,
+    isActive: activeAgent === agent.role,
+    isDone: doneAgents.has(agent.role),
+    isTarget: activeTargetAgent === agent.role,
+    lastMessage: lastMessages[agent.role],
+  }));
+
+  const handleSubmit = useCallback(async (request: StoryRequest) => {
+    // Abort any previous request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setIsRunning(true);
+    setActiveAgent(null);
+    setDoneAgents(new Set());
+    setChatMessages([]);
+    setFinalDoc(null);
+    setShowResult(false);
+    setViewMode("room");
+    setError(null);
+
+    try {
+      const res = await fetch("/api/orchestrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `서버 오류 (${res.status})`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("스트림을 열 수 없습니다.");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+
+          try {
+            const event: OrchestratorEvent = JSON.parse(data);
+
+            switch (event.type) {
+              case "phase_change":
+                setCurrentPhase(event.phase || "");
+                break;
+              case "agent_start":
+                setActiveAgent(event.agent || null);
+                setActiveTargetAgent(event.targetAgent || null);
+                break;
+              case "agent_message":
+                setChatMessages((prev) => [
+                  ...prev,
+                  {
+                    emoji: event.emoji || "",
+                    agentName: event.agentName || "",
+                    phase: event.phase || "",
+                    content: event.content || "",
+                    agentRole: event.agent || "",
+                    targetAgentName: event.targetAgentName,
+                  },
+                ]);
+                break;
+              case "agent_done":
+                setDoneAgents((prev) => new Set([...prev, event.agent || ""]));
+                setActiveAgent(null);
+                setActiveTargetAgent(null);
+                break;
+              case "complete":
+                setFinalDoc(event.finalDocument || null);
+                setShowResult(true);
+                break;
+              case "error":
+                setError(event.content || "서버에서 오류가 발생했습니다.");
+                break;
+            }
+          } catch {
+            // skip invalid JSON
+          }
+        }
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      const message =
+        err instanceof Error ? err.message : "알 수 없는 오류가 발생했습니다.";
+      setError(message);
+      console.error("Orchestration failed:", err);
+    } finally {
+      setIsRunning(false);
+      setActiveAgent(null);
+    }
+  }, []);
+
+  const handleDownload = (format: "txt" | "md") => {
+    if (!finalDoc) return;
+    const mimeType =
+      format === "txt" ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8";
+    const blob = new Blob([finalDoc], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `게임_스토리_기획서_${new Date().toISOString().slice(0, 10)}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopy = async () => {
+    if (!finalDoc) return;
+    try {
+      await navigator.clipboard.writeText(finalDoc);
+    } catch {
+      // fallback: select + copy
+      const textarea = document.createElement("textarea");
+      textarea.value = finalDoc;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+  };
+
+  const handleReset = () => {
+    abortRef.current?.abort();
+    setShowResult(false);
+    setChatMessages([]);
+    setFinalDoc(null);
+    setDoneAgents(new Set());
+    setCurrentPhase("");
+    setError(null);
+    setIsRunning(false);
+  };
+
+  const started = chatMessages.length > 0 || isRunning;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="border-b border-[var(--card-border)] px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold">
+              🎮 게임 스토리 에이전트 군단
+            </h1>
+            <p className="text-xs text-gray-500 mt-0.5">
+              AI 멀티에이전트가 협업하여 게임 스토리를 기획합니다
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {currentPhase && isRunning && (
+              <div className="text-sm text-purple-400 animate-pulse">
+                {currentPhase}
+              </div>
+            )}
+            {started && !showResult && (
+              <div className="flex bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setViewMode("room")}
+                  className={`px-3 py-1.5 text-xs transition-all ${
+                    viewMode === "room"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  🏢 회의실
+                </button>
+                <button
+                  onClick={() => setViewMode("chat")}
+                  className={`px-3 py-1.5 text-xs transition-all ${
+                    viewMode === "chat"
+                      ? "bg-purple-600 text-white"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  💬 대화
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-red-900/30 border-b border-red-500/30 px-6 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <p className="text-sm text-red-300">⚠️ {error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-200 text-xs"
+            >
+              닫기
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Main */}
+      <main className="flex-1 flex flex-col max-w-7xl mx-auto w-full">
+        {!started && !error ? (
+          /* 초기: 입력 폼 */
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="w-full max-w-lg">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold mb-2">
+                  어떤 게임을 만들고 싶으세요?
+                </h2>
+                <p className="text-gray-500 text-sm">
+                  장르, 테마, 배경을 입력하면 7명의 AI 에이전트가 회의하며
+                  <br />
+                  완성된 게임 스토리 기획서를 만들어드립니다.
+                </p>
+              </div>
+              <InputForm onSubmit={handleSubmit} disabled={isRunning} />
+            </div>
+          </div>
+        ) : showResult && finalDoc ? (
+          /* 최종 기획서 */
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">📋 최종 게임 스토리 기획서</h2>
+              <button
+                onClick={() => setShowResult(false)}
+                className="text-xs text-purple-400 hover:text-purple-300"
+              >
+                에이전트 대화 보기 →
+              </button>
+            </div>
+            <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 text-sm leading-relaxed whitespace-pre-wrap">
+              {finalDoc}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                onClick={handleCopy}
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+              >
+                📋 복사하기
+              </button>
+              <button
+                onClick={() => handleDownload("txt")}
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+              >
+                📥 TXT 다운로드
+              </button>
+              <button
+                onClick={() => handleDownload("md")}
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+              >
+                📝 MD 다운로드
+              </button>
+              <button
+                onClick={handleReset}
+                className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+              >
+                🔄 새로 기획하기
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* 진행 중: 회의실 + 대화 */
+          <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+            {/* 회의실 뷰 */}
+            <div
+              className={`${
+                viewMode === "room" ? "flex" : "hidden lg:flex"
+              } flex-1 p-4`}
+            >
+              <div className="w-full">
+                {/* 진행률 바 */}
+                {isRunning && (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>진행률</span>
+                      <span>{chatMessages.length} / 17 발언</span>
+                    </div>
+                    <div className="h-2 bg-[var(--card-bg)] rounded-full border border-[var(--card-border)]">
+                      <div
+                        className="h-full bg-purple-600 rounded-full transition-all duration-500"
+                        style={{
+                          width: `${(chatMessages.length / 17) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                <MeetingRoom
+                  agents={meetingAgents}
+                  currentPhase={currentPhase}
+                  isRunning={isRunning}
+                  activeTargetAgent={activeTargetAgent || undefined}
+                />
+              </div>
+            </div>
+
+            {/* 대화 스트림 */}
+            <div
+              className={`${
+                viewMode === "chat" ? "flex" : "hidden lg:flex"
+              } flex-col lg:w-[420px] lg:border-l border-[var(--card-border)] min-h-0`}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)]">
+                <h2 className="text-sm font-bold">💬 에이전트 대화</h2>
+                {finalDoc && (
+                  <button
+                    onClick={() => setShowResult(true)}
+                    className="text-xs text-purple-400 hover:text-purple-300"
+                  >
+                    기획서 보기 →
+                  </button>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                {chatMessages.map((msg, i) => (
+                  <ChatMessage
+                    key={i}
+                    emoji={msg.emoji}
+                    agentName={msg.agentName}
+                    phase={msg.phase}
+                    content={msg.content}
+                    targetAgentName={msg.targetAgentName}
+                  />
+                ))}
+                {activeAgent && (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 ml-8 mt-2">
+                    <div className="typing-indicator flex gap-1">
+                      <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                      <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                    </div>
+                    <span>
+                      {AGENT_CONFIGS.find((a) => a.role === activeAgent)?.name}가
+                      작업 중...
+                    </span>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
