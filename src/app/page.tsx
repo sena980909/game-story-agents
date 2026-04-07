@@ -2,10 +2,46 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { AGENT_CONFIGS } from "@/agents/configs";
-import { OrchestratorEvent, StoryRequest } from "@/agents/types";
+import {
+  CharacterRelationship,
+  HistoryEntry,
+  OrchestratorEvent,
+  StoryRequest,
+} from "@/agents/types";
 import MeetingRoom from "@/components/MeetingRoom";
 import ChatMessage from "@/components/ChatMessage";
 import InputForm from "@/components/InputForm";
+import RelationshipDiagram from "@/components/RelationshipDiagram";
+import HistoryPanel from "@/components/HistoryPanel";
+
+const HISTORY_KEY = "game-story-history";
+
+function loadHistory(): HistoryEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries: HistoryEntry[]) {
+  try {
+    // 최대 20개만 보관
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, 20)));
+  } catch {
+    // localStorage 용량 초과 시 오래된 것 삭제
+    try {
+      localStorage.setItem(
+        HISTORY_KEY,
+        JSON.stringify(entries.slice(0, 10))
+      );
+    } catch {
+      // ignore
+    }
+  }
+}
 
 interface ChatEntry {
   emoji: string;
@@ -26,11 +62,23 @@ export default function Home() {
   const [currentPhase, setCurrentPhase] = useState<string>("");
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
   const [finalDoc, setFinalDoc] = useState<string | null>(null);
+  const [relationships, setRelationships] = useState<CharacterRelationship[]>(
+    []
+  );
   const [showResult, setShowResult] = useState(false);
   const [viewMode, setViewMode] = useState<"room" | "chat">("room");
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [lastRequest, setLastRequest] = useState<StoryRequest | null>(null);
+  const [resultTab, setResultTab] = useState<"doc" | "diagram">("doc");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // 히스토리 로드
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -68,9 +116,13 @@ export default function Home() {
     setDoneAgents(new Set());
     setChatMessages([]);
     setFinalDoc(null);
+    setRelationships([]);
     setShowResult(false);
+    setShowHistory(false);
     setViewMode("room");
     setError(null);
+    setLastRequest(request);
+    setResultTab("doc");
 
     try {
       const res = await fetch("/api/orchestrate", {
@@ -135,10 +187,30 @@ export default function Home() {
                 setActiveAgent(null);
                 setActiveTargetAgent(null);
                 break;
-              case "complete":
-                setFinalDoc(event.finalDocument || null);
+              case "complete": {
+                const doc = event.finalDocument || null;
+                const rels = event.relationships || [];
+                setFinalDoc(doc);
+                setRelationships(rels);
                 setShowResult(true);
+
+                // 히스토리에 저장
+                if (doc && request) {
+                  const entry: HistoryEntry = {
+                    id: Date.now().toString(),
+                    timestamp: Date.now(),
+                    request,
+                    finalDocument: doc,
+                    relationships: rels,
+                  };
+                  setHistory((prev) => {
+                    const updated = [entry, ...prev];
+                    saveHistory(updated);
+                    return updated;
+                  });
+                }
                 break;
+              }
               case "error":
                 setError(event.content || "서버에서 오류가 발생했습니다.");
                 break;
@@ -195,12 +267,32 @@ export default function Home() {
   const handleReset = () => {
     abortRef.current?.abort();
     setShowResult(false);
+    setShowHistory(false);
     setChatMessages([]);
     setFinalDoc(null);
+    setRelationships([]);
     setDoneAgents(new Set());
     setCurrentPhase("");
     setError(null);
     setIsRunning(false);
+    setResultTab("doc");
+  };
+
+  const handleHistorySelect = (entry: HistoryEntry) => {
+    setFinalDoc(entry.finalDocument);
+    setRelationships(entry.relationships || []);
+    setLastRequest(entry.request);
+    setShowResult(true);
+    setShowHistory(false);
+    setResultTab("doc");
+  };
+
+  const handleHistoryDelete = (id: string) => {
+    setHistory((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      saveHistory(updated);
+      return updated;
+    });
   };
 
   const started = chatMessages.length > 0 || isRunning;
@@ -218,7 +310,7 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header - 고정 */}
+      {/* Header */}
       <header className="shrink-0 border-b border-[var(--card-border)] px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
@@ -235,7 +327,23 @@ export default function Home() {
                 {currentPhase}
               </div>
             )}
-            {started && !showResult && (
+            {/* 히스토리 버튼 */}
+            {!isRunning && (
+              <button
+                onClick={() => {
+                  setShowHistory((prev) => !prev);
+                  if (!showHistory) setShowResult(false);
+                }}
+                className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                  showHistory
+                    ? "bg-purple-600 text-white border-purple-600"
+                    : "border-[var(--card-border)] text-gray-400 hover:text-white hover:border-purple-500"
+                }`}
+              >
+                📂 히스토리 {history.length > 0 && `(${history.length})`}
+              </button>
+            )}
+            {started && !showResult && !showHistory && (
               <div className="flex bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode("room")}
@@ -278,10 +386,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* Main - 나머지 공간 전부 차지, overflow hidden */}
+      {/* Main */}
       <main className="flex-1 min-h-0 max-w-7xl mx-auto w-full">
-        {!started && !error ? (
-          /* 초기: 입력 폼 (스크롤 가능) */
+        {showHistory ? (
+          /* 히스토리 패널 */
+          <HistoryPanel
+            entries={history}
+            onSelect={handleHistorySelect}
+            onDelete={handleHistoryDelete}
+            onClose={() => setShowHistory(false)}
+          />
+        ) : !started && !error ? (
+          /* 초기: 입력 폼 */
           <div className="h-full overflow-y-auto flex items-center justify-center p-8">
             <div className="w-full max-w-lg">
               <div className="text-center mb-8">
@@ -298,10 +414,37 @@ export default function Home() {
             </div>
           </div>
         ) : showResult && finalDoc ? (
-          /* 최종 기획서 (내부 스크롤) */
+          /* 최종 기획서 + 관계도 */
           <div className="h-full flex flex-col">
             <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-[var(--card-border)]">
-              <h2 className="text-lg font-bold">📋 최종 게임 스토리 기획서</h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-bold">📋 최종 게임 스토리 기획서</h2>
+                {/* 기획서/관계도 탭 */}
+                {relationships.length > 0 && (
+                  <div className="flex bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setResultTab("doc")}
+                      className={`px-3 py-1 text-xs transition-all ${
+                        resultTab === "doc"
+                          ? "bg-purple-600 text-white"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      📄 기획서
+                    </button>
+                    <button
+                      onClick={() => setResultTab("diagram")}
+                      className={`px-3 py-1 text-xs transition-all ${
+                        resultTab === "diagram"
+                          ? "bg-purple-600 text-white"
+                          : "text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      🔗 관계도
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowResult(false)}
@@ -312,39 +455,55 @@ export default function Home() {
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto p-6">
-              <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 text-sm leading-relaxed whitespace-pre-wrap">
-                {finalDoc}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3 pb-4">
-                <button
-                  onClick={handleCopy}
-                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-                >
-                  📋 복사하기
-                </button>
-                <button
-                  onClick={() => handleDownload("txt")}
-                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-                >
-                  📥 TXT 다운로드
-                </button>
-                <button
-                  onClick={() => handleDownload("md")}
-                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-                >
-                  📝 MD 다운로드
-                </button>
-                <button
-                  onClick={handleReset}
-                  className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
-                >
-                  🔄 새로 기획하기
-                </button>
-              </div>
+              {resultTab === "doc" ? (
+                <>
+                  <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-6 text-sm leading-relaxed whitespace-pre-wrap">
+                    {finalDoc}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-3 pb-4">
+                    <button
+                      onClick={handleCopy}
+                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                    >
+                      📋 복사하기
+                    </button>
+                    <button
+                      onClick={() => handleDownload("txt")}
+                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                    >
+                      📥 TXT 다운로드
+                    </button>
+                    <button
+                      onClick={() => handleDownload("md")}
+                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                    >
+                      📝 MD 다운로드
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                    >
+                      🔄 새로 기획하기
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="max-w-xl mx-auto">
+                  <RelationshipDiagram relationships={relationships} />
+                  <div className="mt-4 text-center">
+                    <button
+                      onClick={handleReset}
+                      className="px-4 py-2 text-xs rounded-lg border border-[var(--card-border)] hover:border-purple-500 transition-all"
+                    >
+                      🔄 새로 기획하기
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : (
-          /* 진행 중: 회의실 + 대화 (고정 높이) */
+          /* 진행 중: 회의실 + 대화 */
           <div className="h-full flex flex-col lg:flex-row">
             {/* 회의실 뷰 */}
             <div
@@ -381,7 +540,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 대화 패널 (고정 폭, 내부 스크롤) */}
+            {/* 대화 패널 */}
             <div
               className={`${
                 viewMode === "chat" ? "flex" : "hidden lg:flex"
@@ -398,17 +557,14 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              {/* 회의록 - 라운드별 그룹핑, 내부만 스크롤 */}
               <div className="flex-1 min-h-0 overflow-y-auto p-4">
                 {groupedMessages.map((group, gi) => (
                   <div key={gi} className="mb-4">
-                    {/* 라운드 헤더 */}
                     <div className="sticky top-0 z-10 bg-[var(--background)]/90 backdrop-blur-sm py-1.5 mb-2 border-b border-[var(--card-border)]">
                       <span className="text-xs font-bold text-purple-400">
                         {group.phase}
                       </span>
                     </div>
-                    {/* 라운드 내 메시지들 */}
                     <div className="space-y-2">
                       {group.messages.map((msg, mi) => (
                         <ChatMessage

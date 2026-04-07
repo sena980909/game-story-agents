@@ -33,6 +33,13 @@ export interface StoryRequest {
   additionalNotes?: string;
 }
 
+export interface CharacterRelationship {
+  from: string;
+  to: string;
+  relation: string;
+  type: "ally" | "enemy" | "neutral" | "romantic" | "family";
+}
+
 export interface OrchestratorEvent {
   type: "agent_start" | "agent_message" | "agent_done" | "phase_change" | "complete" | "error";
   agent?: AgentRole;
@@ -43,4 +50,13 @@ export interface OrchestratorEvent {
   phase?: string;
   content?: string;
   finalDocument?: string;
+  relationships?: CharacterRelationship[];
+}
+
+export interface HistoryEntry {
+  id: string;
+  timestamp: number;
+  request: StoryRequest;
+  finalDocument: string;
+  relationships?: CharacterRelationship[];
 }

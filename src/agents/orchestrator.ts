@@ -3,6 +3,7 @@ import { getAgentConfig } from "./configs";
 import {
   AgentMessage,
   AgentRole,
+  CharacterRelationship,
   OrchestratorEvent,
   StoryRequest,
 } from "./types";
@@ -327,8 +328,51 @@ export async function* orchestrate(
 
   const finalDoc = [overviewSection, detailSections].filter(Boolean).join("\n\n");
 
+  // 캐릭터 관계도 추출 (gpt-4o-mini로 저비용)
+  let relationships: CharacterRelationship[] = [];
+  try {
+    const characterSection = r3.find((m) => m.role === "character_designer");
+    const plotSection = r3.find((m) => m.role === "plot_architect");
+    const extractionInput = [
+      characterSection?.content || "",
+      plotSection?.content || "",
+    ].join("\n\n");
+
+    if (extractionInput.trim()) {
+      const extractionConfig = {
+        ...getAgentConfig("director"),
+        temperature: 0.1,
+        systemPrompt: "당신은 텍스트에서 구조화된 데이터를 추출하는 전문가입니다. 반드시 유효한 JSON만 출력하세요. 다른 텍스트는 절대 포함하지 마세요.",
+      };
+
+      const extractionResult = await runAgent(
+        extractionConfig,
+        "",
+        [],
+        `다음 게임 기획서에서 캐릭터 간 관계를 추출하여 JSON 배열로 출력하세요.
+
+형식 (이 형식만 출력, 다른 텍스트 금지):
+[{"from":"캐릭터A","to":"캐릭터B","relation":"관계설명","type":"ally"},...]
+
+type은 반드시 다음 중 하나: "ally", "enemy", "neutral", "romantic", "family"
+
+텍스트:
+${extractionInput}`,
+        "gpt-4o-mini"
+      );
+
+      const jsonMatch = extractionResult.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        relationships = JSON.parse(jsonMatch[0]);
+      }
+    }
+  } catch {
+    // 관계 추출 실패해도 기획서는 정상 출력
+  }
+
   yield {
     type: "complete",
     finalDocument: finalDoc,
+    relationships,
   };
 }
